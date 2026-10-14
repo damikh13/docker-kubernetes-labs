@@ -1,0 +1,106 @@
+# Prometheus + Alertmanager + Grafana (+ operator, node-exporter, kube-state-metrics)
+# Install as release "kps"; fullnameOverride keeps service names predictable:
+#   prom-stack-prometheus:9090, prom-stack-alertmanager:9093, grafana:80
+fullnameOverride: prom-stack
+
+# kind/minikube don't expose these control-plane endpoints -> avoid permanently "down" targets
+kubeControllerManager: { enabled: false }
+kubeScheduler: { enabled: false }
+kubeEtcd: { enabled: false }
+kubeProxy: { enabled: false }
+
+# Only our own alerts (below) - keeps Alertmanager/Karma free of generic cluster noise
+defaultRules:
+  create: false
+
+prometheus:
+  prometheusSpec:
+    scrapeInterval: 15s
+    evaluationInterval: 15s
+    # pick up ServiceMonitors / rules from ANY namespace, not only ones labelled with the release
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+# ---------------- Alert rules ----------------
+additionalPrometheusRulesMap:
+  lab-api-alerts:
+    groups:
+      - name: lab-api.critical
+        rules:
+          - alert: LabApiHighErrorRate
+            expr: |
+              sum(rate(http_errors_total{job="lab-api"}[1m]))
+                /
+              sum(rate(http_requests_total{job="lab-api"}[1m])) > 0.05
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "lab-api: more than 5% of requests fail with 5xx"
+              description: "Error ratio has been above 5% for 2 minutes - users are getting errors. Check logs (level=ERROR) and the failed traces in Jaeger."
+
+          - alert: LabApiHighLatencyP95
+            expr: |
+              histogram_quantile(0.95,
+                sum by (le) (rate(http_request_duration_seconds_bucket{job="lab-api", path!="/load"}[2m]))
+              ) > 1
+            for: 2m
+            labels:
+              severity: critical
+            annotations:
+              summary: "lab-api: p95 response time above 1s"
+              description: "5% of users wait longer than 1s for a response. Open a slow trace in Jaeger and look at which span is long."
+
+          - alert: LabApiDown
+            expr: (up{job="lab-api"} == 0) or absent(up{job="lab-api"})
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "lab-api: service is not responding / not scraped"
+              description: "Prometheus cannot scrape lab-api (or the target disappeared) for 1 minute. Check pods, events and recent deploys."
+
+# ---------------- Alertmanager ----------------
+alertmanager:
+  config:
+    route:
+      receiver: "null"
+      group_by: ["alertname"]
+      group_wait: 10s
+      group_interval: 1m
+      repeat_interval: 1h
+      routes:
+        - receiver: webhook
+          matchers:
+            - severity="critical"
+    receivers:
+      - name: "null"
+      # in-cluster receiver that prints every notification to its stdout (see observability-extras)
+      - name: webhook
+        webhook_configs:
+          - url: http://alert-webhook.monitoring.svc:8080/
+            send_resolved: true
+
+# ---------------- Grafana ----------------
+grafana:
+  fullnameOverride: grafana
+  adminPassword: admin
+  additionalDataSources:
+    - name: Jaeger
+      type: jaeger
+      uid: jaeger
+      access: proxy
+      url: http://jaeger.monitoring.svc:16686
+    - name: Loki
+      type: loki
+      uid: loki
+      access: proxy
+      url: http://loki.monitoring.svc:3100
+      jsonData:
+        derivedFields:
+          # turns the trace_id in a JSON log line into a clickable link to the Jaeger trace
+          - name: trace_id
+            matcherRegex: '"trace_id":"(\w+)"'
+            url: '$${__value.raw}'
+            datasourceUid: jaeger

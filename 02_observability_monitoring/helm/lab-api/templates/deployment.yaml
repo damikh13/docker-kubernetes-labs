@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-api
+  labels:
+    app.kubernetes.io/name: lab-api
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: lab-api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: lab-api
+    spec:
+      containers:
+        - name: lab-api
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+            # /load hits the Service, so the burst is spread over all replicas
+            - name: SELF_URL
+              value: "http://lab-api:{{ .Values.service.port }}"
+            - name: OTEL_SERVICE_NAME
+              value: lab-api
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.otlpEndpoint | quote }}
+          readinessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /health, port: http }
+            periodSeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { memory: 256Mi }

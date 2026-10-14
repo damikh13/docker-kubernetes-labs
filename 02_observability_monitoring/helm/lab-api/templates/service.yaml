@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-api
+  labels:
+    app.kubernetes.io/name: lab-api
+spec:
+  selector:
+    app.kubernetes.io/name: lab-api
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http

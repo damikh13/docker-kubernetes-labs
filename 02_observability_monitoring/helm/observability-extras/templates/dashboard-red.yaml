@@ -1,0 +1,10 @@
+# Grafana sidecar loads every ConfigMap labelled grafana_dashboard=1
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab-api-red-dashboard
+  labels:
+    grafana_dashboard: "1"
+data:
+  lab-api-red.json: |-
+{{ .Files.Get "dashboards/red.json" | indent 4 }}

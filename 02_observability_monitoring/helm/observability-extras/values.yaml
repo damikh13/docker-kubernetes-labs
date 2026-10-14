@@ -1,0 +1,9 @@
+jaeger:
+  image: jaegertracing/all-in-one:1.65.0
+
+karma:
+  image: ghcr.io/prymitive/karma:latest
+  alertmanagerUri: http://prom-stack-alertmanager.monitoring.svc:9093
+
+webhook:
+  image: mendhak/http-https-echo:latest

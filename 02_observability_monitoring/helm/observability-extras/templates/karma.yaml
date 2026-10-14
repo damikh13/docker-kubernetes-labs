@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: karma
+  labels: { app: karma }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: karma }
+  template:
+    metadata:
+      labels: { app: karma }
+    spec:
+      containers:
+        - name: karma
+          image: {{ .Values.karma.image }}
+          env:
+            - name: ALERTMANAGER_URI
+              value: {{ .Values.karma.alertmanagerUri | quote }}
+            - name: ALERTMANAGER_NAME
+              value: main
+            - name: ALERTMANAGER_PROXY
+              value: "true"
+          ports:
+            - { name: http, containerPort: 8080 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: karma
+  labels: { app: karma }
+spec:
+  selector: { app: karma }
+  ports:
+    - { name: http, port: 8080, targetPort: http }

@@ -1,0 +1,15 @@
+image:
+  repository: lab-api
+  tag: "0.1"
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+service:
+  port: 8080
+
+# where the OTLP/HTTP exporter sends traces
+otlpEndpoint: http://jaeger.monitoring.svc:4318
+
+serviceMonitor:
+  interval: 15s

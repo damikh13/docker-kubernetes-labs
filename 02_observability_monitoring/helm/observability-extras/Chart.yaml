@@ -1,0 +1,4 @@
+apiVersion: v2
+name: observability-extras
+description: Jaeger (all-in-one), Karma, alert webhook receiver and the RED Grafana dashboard
+version: 0.1.0

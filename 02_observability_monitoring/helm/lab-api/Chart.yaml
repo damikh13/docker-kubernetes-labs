@@ -1,0 +1,5 @@
+apiVersion: v2
+name: lab-api
+description: Demo API service (RED metrics, JSON logs with trace_id, OTel traces)
+version: 0.1.0
+appVersion: "0.1"
