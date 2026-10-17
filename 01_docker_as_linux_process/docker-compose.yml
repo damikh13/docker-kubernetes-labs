@@ -1,0 +1,40 @@
+services:
+  api:
+    build: .
+    container_name: lab-api
+    ports: ["8080:8080"]
+    mem_limit: 50m
+    memswap_limit: 50m
+    cpus: 0.5
+    pids_limit: 20
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  cgroup-exporter:
+    image: python:3.12-alpine
+    container_name: cgroup-exporter
+    command: ["python", "-u", "/app/cgroup_exporter.py"]
+    volumes:
+      - ./exporter/cgroup_exporter.py:/app/cgroup_exporter.py:ro
+      - /sys/fs/cgroup:/host-cgroup:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports: ["9100:9100"]
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]

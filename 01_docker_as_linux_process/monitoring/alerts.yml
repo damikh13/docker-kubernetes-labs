@@ -1,0 +1,26 @@
+groups:
+  - name: lab-api-container
+    rules:
+      - alert: ContainerMemoryNearLimit
+        expr: |
+          cgroup_memory_working_set_bytes{name="lab-api"}
+            / cgroup_memory_max_bytes{name="lab-api"} > 0.9
+        for: 30s
+        labels: { severity: critical }
+        annotations:
+          summary: "lab-api uses more than 90% of its memory limit"
+
+      - alert: ContainerCpuThrottled
+        expr: |
+          rate(cgroup_cpu_throttled_periods_total{name="lab-api"}[1m])
+            / rate(cgroup_cpu_periods_total{name="lab-api"}[1m]) > 0.25
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: "lab-api is throttled in more than 25% of CPU periods"
+
+      - alert: ContainerRestarted
+        expr: changes(docker_container_restart_count{name="lab-api"}[5m]) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: "lab-api was restarted in the last 5 minutes (crash or OOM kill)"
